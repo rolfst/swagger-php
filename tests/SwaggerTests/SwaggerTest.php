@@ -4,7 +4,7 @@ namespace SwaggerTests;
 
 /**
  * @license    http://www.apache.org/licenses/LICENSE-2.0
- *             Copyright [2013] [Robert Allen]
+ *             Copyright [2014] [Robert Allen]
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,6 +79,25 @@ class SwaggerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * Filter resource list by api version
+     */
+    public function testResourceFilter() {
+        $swagger = new Swagger($this->examplesDir('Petstore'));
+        $swagger->registry['/pet']->apiVersion = 4; // Set "/pet" to a version below 1
+
+        $before = $swagger->getResourceList();
+        $this->assertCount(2, $before['apis'], 'Both /pet and /user resources');
+
+        // Filter out all unstable versions
+        $swagger->registry = array_filter($swagger->registry, function ($resource) {
+            return version_compare($resource->apiVersion, 4, '==');
+        });
+        $after = $swagger->getResourceList();
+        $this->assertCount(1, $after['apis']);
+        $this->assertEquals('/pet', $after['apis'][0]['path'], 'Resource /user didn\'t match the filter and only /pet remains');
+    }
+
+    /**
      * @group cli
      */
     public function testCliTool()
@@ -141,20 +160,52 @@ class Child extends Parent {
 }
 END;
         $swagger = new Swagger();
-        $swagger->examine($code, __CLASS__.'->'.__FUNCTION__.'()');
+        $swagger->examine($code);
 
         // Assert parser & parent
         $this->assertCount(2, $swagger->models);
         $this->assertCount(1, $swagger->models['Parent']->properties);
         $this->assertEquals('name', $swagger->models['Parent']->properties[0]->name);
-        $this->assertEquals(true, $swagger->models['Parent']->properties[0]->required);
+        $this->assertContains('name', $swagger->models['Parent']->required);
         $this->assertEquals(array('name'), $swagger->models['Parent']->required);
         // Assert child and inheritance
         $this->assertCount(2, $swagger->models['Child']->properties);
         $this->assertEquals('id', $swagger->models['Child']->properties[0]->name);
         $this->assertEquals('name', $swagger->models['Child']->properties[1]->name);
-        $this->assertEquals(true, $swagger->models['Child']->properties[1]->required);
+        $this->assertContains('id', $swagger->models['Child']->required);
         $this->assertEquals(array('id', 'name'), $swagger->models['Child']->required);
+    }
+
+    function testPropertyInheritance() {
+        $code = <<<END
+<?php
+/**
+ * Class UserBase
+ *
+ * @SWG\Model(id="UserBase")
+ */
+class UserBase {
+    /**
+     * @SWG\Property()
+     */
+    public \$email;
+}
+
+/**
+ * @SWG\Model(id="UserNew",required="['email']")
+ */
+class UserNew extends UserBase { }
+
+/**
+ * @SWG\Model(id="UserUpdate")
+ */
+class UserUpdate extends UserBase { }
+END;
+        $swagger = new Swagger();
+        $swagger->examine($code);
+        $this->assertCount(1, $swagger->models['UserNew']->required);
+        $this->assertNull($swagger->models['UserUpdate']->required);
+
     }
     /**
      * dataProvider for testExample

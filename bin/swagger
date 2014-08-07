@@ -3,7 +3,7 @@
 
 /**
  * @license  http://www.apache.org/licenses/LICENSE-2.0
- *           Copyright [2013] [Robert Allen]
+ *           Copyright [2014] [Robert Allen]
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ try {
         'default-base-path' => null,
         'default-api-version' => null,
         'default-swagger-version' => '1.2',
+        'api-doc-template' => null,
         'version' => false,
         'suffix' => '.{format}',
         'help' => false,
@@ -70,6 +71,7 @@ try {
         'default-base-path',
         'default-api-version',
         'default-swagger-version',
+        'api-doc-template',
     );
     $paths = array();
     // Parse cli arguments
@@ -124,6 +126,7 @@ Usage: swagger /path/to/project [--output /path/to/docs] ...
   --default-base-path        Provide a default basePath for the resources
   --default-api-version      Provide a default apiVersion for the resources
   --default-swagger-version  Provide a default swaggerVersion for the resources
+  --api-doc-template         Provide a json template for the resource listing
 
   -v, --version       Swagger-PHP version
   -h, --help          This help message
@@ -173,19 +176,23 @@ EOF;
     };
     $swagger = new \Swagger\Swagger($projectPaths, $excludePaths);
 
-    $resourceListOptions = array(
-        'output' => 'json',
+    $resourceList = $swagger->getResourceList(array(
+        'output' => 'array',
         'suffix' => $options['suffix'],
         'basePath' => $options['url'],
         'apiVersion' => $options['default-api-version'],
         'swaggerVersion' => $options['default-swagger-version'],
-    );
+        'template' => $options['api-doc-template']
+    ));
+    // Use the imported values from the `api-doc-template` or else use the given defaults.
     $resourceOptions = array(
         'output' => 'json',
-        'defaultBasePath' => $options['default-base-path'],
-        'defaultApiVersion' => $options['default-api-version'],
-        'defaultSwaggerVersion' => $options['default-swagger-version'],
+        'defaultSwaggerVersion' => $resourceList['swaggerVersion'],
+        'defaultBasePath' => $options['default-base-path']
     );
+    if (isset($resourceList['apiVersion'])) {
+        $resourceOptions['defaultApiVersion'] = $resourceList['apiVersion'];
+    }
 
     $resourceName = false;
     $output = array();
@@ -208,7 +215,7 @@ EOF;
         }
 
         $filename = $outputPath.'api-docs.json';
-        if (file_put_contents($filename, $swagger->getResourceList($resourceListOptions))) {
+        if (file_put_contents($filename, Swagger\Swagger::jsonEncode($resourceList, true))) {
             echo 'Created ', $filename, PHP_EOL;
         }
         if ($options['url'] == false) {

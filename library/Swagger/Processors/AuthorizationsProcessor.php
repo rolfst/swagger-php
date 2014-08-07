@@ -31,18 +31,10 @@ class AuthorizationsProcessor implements ProcessorInterface
     /**
      * {@inheritdoc}
      */
-    public function supports($annotation, $context)
-    {
-        return $annotation instanceof Authorizations;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function process(Parser $parser, $annotation, $context)
+    public function process($annotation, $context)
     {
         if ($annotation instanceof Authorizations) {
-            $parser->setAuthorizations($annotation);
+            $context->getRootContext()->authorizations = $annotation;
         }
     }
 }

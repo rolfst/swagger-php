@@ -39,10 +39,10 @@ class InfoProcessor implements ProcessorInterface
     /**
      * {@inheritdoc}
      */
-    public function process(Parser $parser, $annotation, $context)
+    public function process($annotation, $context)
     {
         if ($annotation instanceof Info && $annotation->validate()) {
-            $parser->setInfo($annotation);
+            $context->getRootContext()->info =$annotation;
         }
     }
 }
